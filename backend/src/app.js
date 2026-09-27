@@ -9,16 +9,24 @@ const allocationRunsRouter = require('./routes/allocationRuns');
 const exactBundleRouter = require('./routes/exactBundle');
 const routesRouter = require('./routes/routes');
 const analyticsRouter = require('./routes/analytics');
+const authProfileRouter = require('./routes/authProfile');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-app.use(cors());
+app.use(
+  cors({
+    origin: 'http://localhost:5173',
+    allowedHeaders: ['Authorization', 'Content-Type'],
+  })
+);
 app.use(express.json());
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
+
+app.use('/api/auth', authProfileRouter);
 
 app.use('/api/donations', requireAuth, donationsRouter);
 app.use('/api/requests', requireAuth, requestsRouter);

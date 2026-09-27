@@ -42,6 +42,35 @@ async function requireAuth(req, res, next) {
   }
 }
 
+async function requireSession(req, res, next) {
+  try {
+    const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+    if (!authHeader || typeof authHeader !== 'string') {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const [scheme, token] = authHeader.trim().split(/\s+/);
+    if (!scheme || !token || scheme.toLowerCase() !== 'bearer') {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { data, error } = await supabase.auth.getUser(token);
+    if (error || !data || !data.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const user = data.user;
+    req.user = {
+      id: user.id,
+      email: user.email,
+    };
+
+    return next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+}
+
 function requireRole(...roles) {
   const allowedRoles = roles.flat();
   return (req, res, next) => {
@@ -54,5 +83,9 @@ function requireRole(...roles) {
 
 requireAuth.requireAuth = requireAuth;
 requireAuth.requireRole = requireRole;
+requireAuth.requireSession = requireSession;
 
 module.exports = requireAuth;
+module.exports.requireAuth = requireAuth;
+module.exports.requireRole = requireRole;
+module.exports.requireSession = requireSession;
