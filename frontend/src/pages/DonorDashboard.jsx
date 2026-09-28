@@ -3,18 +3,7 @@ import { apiGet, apiPost, apiPatch } from '../api/client';
 import StatusBadge from '../components/StatusBadge';
 import ErrorBox from '../components/ErrorBox';
 import LocationPicker from '../components/LocationPicker';
-
-const CATEGORIES = [
-  'cooked-meals',
-  'grains',
-  'vegetables',
-  'fruits',
-  'bakery',
-  'dairy',
-  'packaged',
-];
-
-const UNITS = ['kg', 'liters', 'boxes'];
+import { CATEGORIES, UNITS } from '../lib/options';
 
 export default function DonorDashboard() {
   // Donations state
