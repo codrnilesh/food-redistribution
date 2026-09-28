@@ -1,6 +1,26 @@
 import React from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
+import Layout from './components/Layout';
+import DonorDashboard from './pages/DonorDashboard';
+import RecipientDashboard from './pages/RecipientDashboard';
+import VolunteerView from './pages/VolunteerView';
+import AdminConsole from './pages/AdminConsole';
+
+function renderRolePage(role) {
+  switch (role?.toLowerCase()) {
+    case 'donor':
+      return <DonorDashboard />;
+    case 'recipient':
+      return <RecipientDashboard />;
+    case 'volunteer':
+      return <VolunteerView />;
+    case 'admin':
+      return <AdminConsole />;
+    default:
+      return <h2>Unknown role: {role}</h2>;
+  }
+}
 
 function AppContent() {
   const { session, profile, loading, signOut } = useAuth();
@@ -29,12 +49,9 @@ function AppContent() {
   }
 
   return (
-    <div className="status-container welcome-card">
-      <h2>Welcome {profile.name} ({profile.role})</h2>
-      <button type="button" onClick={signOut} className="btn-secondary">
-        Sign out
-      </button>
-    </div>
+    <Layout>
+      {renderRolePage(profile.role)}
+    </Layout>
   );
 }
 
