@@ -6,6 +6,7 @@ import DonorDashboard from './pages/DonorDashboard';
 import RecipientDashboard from './pages/RecipientDashboard';
 import VolunteerView from './pages/VolunteerView';
 import AdminConsole from './pages/AdminConsole';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function renderRolePage(role) {
   switch (role?.toLowerCase()) {
@@ -50,7 +51,9 @@ function AppContent() {
 
   return (
     <Layout>
-      {renderRolePage(profile.role)}
+      <ErrorBoundary>
+        {renderRolePage(profile.role)}
+      </ErrorBoundary>
     </Layout>
   );
 }
