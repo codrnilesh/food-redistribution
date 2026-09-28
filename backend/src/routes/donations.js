@@ -8,6 +8,15 @@ const { haversineKm } = require('../algorithms/haversine');
 // GET / - donor sees only their own rows; admin sees all
 router.get('/', async (req, res) => {
   try {
+    const nowIso = new Date().toISOString();
+
+    // Auto-expire active donations whose expiry time has passed
+    await supabase
+      .from('donations')
+      .update({ status: 'EXPIRED' })
+      .in('status', ['AVAILABLE', 'PARTIALLY_ALLOCATED'])
+      .lt('expiry_time', nowIso);
+
     let query = supabase.from('donations').select('*');
 
     if (req.user.role === 'admin') {
@@ -128,6 +137,14 @@ router.patch('/:id', async (req, res) => {
     // Can only update description and/or status to CANCELLED
     if (req.body.status !== undefined && req.body.status !== 'CANCELLED') {
       return res.status(400).json({ error: 'Status can only be updated to CANCELLED' });
+    }
+
+    // Cannot cancel an expired donation
+    const isExpired =
+      donation.status === 'EXPIRED' ||
+      (donation.expiry_time && new Date(donation.expiry_time).getTime() <= Date.now());
+    if (isExpired && req.body.status === 'CANCELLED') {
+      return res.status(400).json({ error: 'Cannot cancel an expired donation' });
     }
 
     const updates = {};

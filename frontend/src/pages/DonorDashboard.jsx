@@ -267,38 +267,47 @@ export default function DonorDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {donations.map((d) => (
-                  <tr key={d.id}>
-                    <td>
-                      <code title={d.id}>{d.id.length > 8 ? `${d.id.slice(0, 8)}…` : d.id}</code>
-                    </td>
-                    <td>{d.category}</td>
-                    <td>
-                      {d.original_quantity} {d.unit}
-                    </td>
-                    <td>
-                      {d.remaining_quantity} {d.unit}
-                    </td>
-                    <td>{new Date(d.expiry_time).toLocaleString()}</td>
-                    <td>
-                      <StatusBadge status={d.status} />
-                    </td>
-                    <td>
-                      {d.status === 'AVAILABLE' ? (
-                        <button
-                          type="button"
-                          className="btn-secondary btn-sm btn-danger-hover"
-                          disabled={cancellingId === d.id}
-                          onClick={() => handleCancel(d.id)}
-                        >
-                          {cancellingId === d.id ? 'Cancelling…' : 'Cancel'}
-                        </button>
-                      ) : (
-                        <span className="text-muted">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {donations.map((d) => {
+                  const isExpired =
+                    d.status !== 'CANCELLED' &&
+                    d.status !== 'FULLY_ALLOCATED' &&
+                    (d.status === 'EXPIRED' ||
+                      (d.expiry_time && new Date(d.expiry_time).getTime() <= Date.now()));
+                  const effectiveStatus = isExpired ? 'EXPIRED' : d.status;
+
+                  return (
+                    <tr key={d.id}>
+                      <td>
+                        <code title={d.id}>{d.id.length > 8 ? `${d.id.slice(0, 8)}…` : d.id}</code>
+                      </td>
+                      <td>{d.category}</td>
+                      <td>
+                        {d.original_quantity} {d.unit}
+                      </td>
+                      <td>
+                        {d.remaining_quantity} {d.unit}
+                      </td>
+                      <td>{new Date(d.expiry_time).toLocaleString()}</td>
+                      <td>
+                        <StatusBadge status={effectiveStatus} />
+                      </td>
+                      <td>
+                        {effectiveStatus === 'AVAILABLE' ? (
+                          <button
+                            type="button"
+                            className="btn-secondary btn-sm btn-danger-hover"
+                            disabled={cancellingId === d.id}
+                            onClick={() => handleCancel(d.id)}
+                          >
+                            {cancellingId === d.id ? 'Cancelling…' : 'Cancel'}
+                          </button>
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

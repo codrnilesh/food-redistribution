@@ -13,21 +13,28 @@ router.get(
       // 1. Fetch donations to aggregate counts by status
       const { data: donations, error: donError } = await supabase
         .from('donations')
-        .select('status, original_quantity, remaining_quantity');
+        .select('status, original_quantity, remaining_quantity, expiry_time');
 
       if (donError) {
         return res.status(500).json({ error: donError.message });
       }
 
       const donationsByStatus = {};
+      const nowMs = Date.now();
       for (const d of donations || []) {
-        donationsByStatus[d.status] = (donationsByStatus[d.status] || 0) + 1;
+        const isExpired =
+          d.status !== 'CANCELLED' &&
+          d.status !== 'FULLY_ALLOCATED' &&
+          (d.status === 'EXPIRED' ||
+            (d.expiry_time && new Date(d.expiry_time).getTime() <= nowMs));
+        const effectiveStatus = isExpired ? 'EXPIRED' : d.status;
+        donationsByStatus[effectiveStatus] = (donationsByStatus[effectiveStatus] || 0) + 1;
       }
 
       // 2. Fetch requests to aggregate counts by status
       const { data: requests, error: reqError } = await supabase
         .from('requests')
-        .select('status, original_quantity, remaining_quantity');
+        .select('status, original_quantity, remaining_quantity, needed_by');
 
       if (reqError) {
         return res.status(500).json({ error: reqError.message });
@@ -35,7 +42,13 @@ router.get(
 
       const requestsByStatus = {};
       for (const r of requests || []) {
-        requestsByStatus[r.status] = (requestsByStatus[r.status] || 0) + 1;
+        const isExpired =
+          r.status !== 'CANCELLED' &&
+          r.status !== 'FULFILLED' &&
+          (r.status === 'EXPIRED' ||
+            (r.needed_by && new Date(r.needed_by).getTime() <= nowMs));
+        const effectiveStatus = isExpired ? 'EXPIRED' : r.status;
+        requestsByStatus[effectiveStatus] = (requestsByStatus[effectiveStatus] || 0) + 1;
       }
 
       // 3. Fetch allocations to calculate total allocated and median metrics

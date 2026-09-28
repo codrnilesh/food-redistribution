@@ -192,7 +192,7 @@ router.post(
           .from('routes')
           .insert({
             volunteer_id: volunteerId,
-            status: 'ASSIGNED',
+            status: 'PLANNED',
             created_at: new Date().toISOString(),
           })
           .select()

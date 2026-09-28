@@ -977,6 +977,162 @@ tr:hover td {
   background-color: var(--accent-bg) !important;
 }
 
+/* =========================================================
+   Analytics Stat Cards Styles (Overview Tab)
+   ========================================================= */
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.stat-card {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+.stat-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text);
+}
+
+.stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-h);
+  line-height: 1.2;
+}
+
+.stat-sublist {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.stat-badge-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.stat-badge-count {
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+/* =========================================================
+   Logistics Tab Styles
+   ========================================================= */
+.logistics-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.logistics-section-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  margin-bottom: 0;
+}
+
+.logistics-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.logistics-section-header h3 {
+  margin: 0 0 var(--space-xs);
+}
+
+.info-box {
+  background-color: var(--blue-bg);
+  color: var(--blue-text);
+  border: 1px solid var(--blue-border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 14px;
+}
+
+.info-box p {
+  margin: 0;
+}
+
+.routes-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+
+.routes-cards-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.bundle-finder-controls {
+  display: flex;
+  gap: var(--space-md);
+  align-items: flex-end;
+  flex-wrap: wrap;
+  background-color: var(--code-bg);
+  padding: var(--space-md);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.bundle-result-box {
+  margin-top: var(--space-md);
+  background-color: var(--code-bg);
+  border: 1px solid var(--border);
+  padding: var(--space-lg);
+}
+
+.bundle-result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--border);
+}
+
+.bundle-result-header h4 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.bundle-summary-row {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-md);
+}
+
+.bundle-batches-section h5 {
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text);
+  margin: 0 0 var(--space-xs);
+}
+
+
 
 
 

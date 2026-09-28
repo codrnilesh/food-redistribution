@@ -8,6 +8,15 @@ const { haversineKm } = require('../algorithms/haversine');
 // GET / - recipient sees only their own rows; admin sees all
 router.get('/', async (req, res) => {
   try {
+    const nowIso = new Date().toISOString();
+
+    // Auto-expire active requests whose needed_by time has passed
+    await supabase
+      .from('requests')
+      .update({ status: 'EXPIRED' })
+      .in('status', ['OPEN', 'PARTIALLY_FULFILLED'])
+      .lt('needed_by', nowIso);
+
     let query = supabase.from('requests').select('*');
 
     if (req.user.role === 'admin') {
@@ -128,6 +137,14 @@ router.patch('/:id', async (req, res) => {
     // Can only update status to CANCELLED
     if (req.body.status !== undefined && req.body.status !== 'CANCELLED') {
       return res.status(400).json({ error: 'Status can only be updated to CANCELLED' });
+    }
+
+    // Cannot cancel an expired request
+    const isExpired =
+      requestItem.status === 'EXPIRED' ||
+      (requestItem.needed_by && new Date(requestItem.needed_by).getTime() <= Date.now());
+    if (isExpired && req.body.status === 'CANCELLED') {
+      return res.status(400).json({ error: 'Cannot cancel an expired request' });
     }
 
     const updates = {};

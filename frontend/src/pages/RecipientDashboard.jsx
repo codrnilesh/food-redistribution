@@ -257,39 +257,48 @@ export default function RecipientDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {requests.map((r) => (
-                  <tr key={r.id}>
-                    <td>
-                      <code title={r.id}>{r.id.length > 8 ? `${r.id.slice(0, 8)}…` : r.id}</code>
-                    </td>
-                    <td>{r.category}</td>
-                    <td>
-                      {r.original_quantity} {r.unit}
-                    </td>
-                    <td>
-                      {r.remaining_quantity} {r.unit}
-                    </td>
-                    <td>{formatUrgency(r.urgency_level)}</td>
-                    <td>{new Date(r.needed_by).toLocaleString()}</td>
-                    <td>
-                      <StatusBadge status={r.status} />
-                    </td>
-                    <td>
-                      {r.status === 'OPEN' ? (
-                        <button
-                          type="button"
-                          className="btn-secondary btn-sm btn-danger-hover"
-                          disabled={cancellingId === r.id}
-                          onClick={() => handleCancel(r.id)}
-                        >
-                          {cancellingId === r.id ? 'Cancelling…' : 'Cancel'}
-                        </button>
-                      ) : (
-                        <span className="text-muted">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {requests.map((r) => {
+                  const isExpired =
+                    r.status !== 'CANCELLED' &&
+                    r.status !== 'FULFILLED' &&
+                    (r.status === 'EXPIRED' ||
+                      (r.needed_by && new Date(r.needed_by).getTime() <= Date.now()));
+                  const effectiveStatus = isExpired ? 'EXPIRED' : r.status;
+
+                  return (
+                    <tr key={r.id}>
+                      <td>
+                        <code title={r.id}>{r.id.length > 8 ? `${r.id.slice(0, 8)}…` : r.id}</code>
+                      </td>
+                      <td>{r.category}</td>
+                      <td>
+                        {r.original_quantity} {r.unit}
+                      </td>
+                      <td>
+                        {r.remaining_quantity} {r.unit}
+                      </td>
+                      <td>{formatUrgency(r.urgency_level)}</td>
+                      <td>{new Date(r.needed_by).toLocaleString()}</td>
+                      <td>
+                        <StatusBadge status={effectiveStatus} />
+                      </td>
+                      <td>
+                        {effectiveStatus === 'OPEN' ? (
+                          <button
+                            type="button"
+                            className="btn-secondary btn-sm btn-danger-hover"
+                            disabled={cancellingId === r.id}
+                            onClick={() => handleCancel(r.id)}
+                          >
+                            {cancellingId === r.id ? 'Cancelling…' : 'Cancel'}
+                          </button>
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

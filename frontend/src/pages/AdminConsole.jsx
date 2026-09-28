@@ -27,6 +27,7 @@ export default function AdminConsole() {
   const [donations, setDonations] = useState([]);
   const [requests, setRequests] = useState([]);
   const [runs, setRuns] = useState([]);
+  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -38,18 +39,35 @@ export default function AdminConsole() {
   const [zeroAllocationsMsg, setZeroAllocationsMsg] = useState('');
   const [skippedAllocations, setSkippedAllocations] = useState(null);
 
+  // Logistics Tab State
+  const [generatingRoutes, setGeneratingRoutes] = useState(false);
+  const [generatedRoutes, setGeneratedRoutes] = useState(null);
+  const [unassignedAllocations, setUnassignedAllocations] = useState(null);
+  const [routesMessage, setRoutesMessage] = useState('');
+  const [routesError, setRoutesError] = useState('');
+
+  // Exact Bundle Finder State
+  const [selectedRequestId, setSelectedRequestId] = useState('');
+  const [findingBundle, setFindingBundle] = useState(false);
+  const [bundleResult, setBundleResult] = useState(null);
+  const [bundleError, setBundleError] = useState('');
+
   const loadOverviewData = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
-      const [donationsData, requestsData, runsData] = await Promise.all([
+      const [donationsData, requestsData, runsData, analyticsData] = await Promise.all([
         apiGet('/donations'),
         apiGet('/requests'),
         apiGet('/allocation-runs'),
+        apiGet('/analytics/summary').catch(() => null),
       ]);
       setDonations(Array.isArray(donationsData) ? donationsData : []);
       setRequests(Array.isArray(requestsData) ? requestsData : []);
       setRuns(Array.isArray(runsData) ? runsData : []);
+      if (analyticsData && typeof analyticsData === 'object') {
+        setSummary(analyticsData);
+      }
     } catch (err) {
       setError(err.message || 'Failed to load admin overview data');
     } finally {
@@ -104,7 +122,6 @@ export default function AdminConsole() {
         }
       }
 
-      // Reload lists so previous runs and any changed data are up to date
       await loadOverviewData();
     } catch (err) {
       setError(err.message || 'Failed to run allocation');
@@ -130,11 +147,9 @@ export default function AdminConsole() {
         setSkippedAllocations(res.skipped);
       }
 
-      // Reload the run
       const updatedRun = await apiGet(`/allocation-runs/${runId}`);
       setSelectedRun(updatedRun);
 
-      // Reload all overview data & runs list
       await loadOverviewData();
     } catch (err) {
       setError(err.message || 'Failed to confirm allocation run');
@@ -157,11 +172,9 @@ export default function AdminConsole() {
     try {
       await apiPost(`/allocation-runs/${runId}/discard`);
 
-      // Reload the run
       const updatedRun = await apiGet(`/allocation-runs/${runId}`);
       setSelectedRun(updatedRun);
 
-      // Reload all overview data & runs list
       await loadOverviewData();
     } catch (err) {
       setError(err.message || 'Failed to discard allocation run');
@@ -187,7 +200,63 @@ export default function AdminConsole() {
     }
   };
 
-  const isBusy = loading || runningAllocation || actionLoading || loadingRunId !== null;
+  // Logistics: Generate routes
+  const handleGenerateRoutes = async () => {
+    setGeneratingRoutes(true);
+    setRoutesError('');
+    setRoutesMessage('');
+    setGeneratedRoutes(null);
+    setUnassignedAllocations(null);
+
+    try {
+      const data = await apiPost('/routes/generate');
+      if (data && typeof data === 'object') {
+        const routes = Array.isArray(data.routes) ? data.routes : [];
+        setGeneratedRoutes(routes);
+
+        const unassigned =
+          data.unassigned_allocations ||
+          data.unassignedAllocations ||
+          data.unassigned ||
+          [];
+        setUnassignedAllocations(Array.isArray(unassigned) ? unassigned : []);
+
+        if (data.message) {
+          setRoutesMessage(data.message);
+        }
+      }
+    } catch (err) {
+      setRoutesError(err.message || 'Failed to generate delivery routes');
+    } finally {
+      setGeneratingRoutes(false);
+    }
+  };
+
+  // Logistics: Find exact bundle
+  const handleFindBundle = async () => {
+    if (!selectedRequestId) return;
+
+    setFindingBundle(true);
+    setBundleError('');
+    setBundleResult(null);
+
+    try {
+      const data = await apiPost(`/requests/${selectedRequestId}/exact-bundle`);
+      setBundleResult(data);
+    } catch (err) {
+      setBundleError(err.message || 'Failed to find exact bundle');
+    } finally {
+      setFindingBundle(false);
+    }
+  };
+
+  const isBusy =
+    loading ||
+    runningAllocation ||
+    actionLoading ||
+    loadingRunId !== null ||
+    generatingRoutes ||
+    findingBundle;
 
   return (
     <div className="dashboard-container">
@@ -222,6 +291,70 @@ export default function AdminConsole() {
       {/* ================= OVERVIEW TAB ================= */}
       {activeTab === 'Overview' && (
         <div className="overview-tab-content">
+          {/* Analytics Stat Cards */}
+          <div className="analytics-grid">
+            <div className="card stat-card">
+              <span className="stat-label">Total Allocated</span>
+              <span className="stat-value">
+                {summary?.total_quantity_allocated != null
+                  ? summary.total_quantity_allocated
+                  : '—'}
+              </span>
+            </div>
+
+            <div className="card stat-card">
+              <span className="stat-label">Median Distance</span>
+              <span className="stat-value">
+                {summary?.median_allocation_distance_km != null
+                  ? `${Number(summary.median_allocation_distance_km).toFixed(1)} km`
+                  : '—'}
+              </span>
+            </div>
+
+            <div className="card stat-card">
+              <span className="stat-label">Median Confirm Time</span>
+              <span className="stat-value">
+                {summary?.median_time_to_confirm_minutes != null
+                  ? `${Number(summary.median_time_to_confirm_minutes).toFixed(1)} min`
+                  : '—'}
+              </span>
+            </div>
+
+            <div className="card stat-card">
+              <span className="stat-label">Donations by Status</span>
+              <div className="stat-sublist">
+                {summary?.donations_by_status &&
+                Object.keys(summary.donations_by_status).length > 0 ? (
+                  Object.entries(summary.donations_by_status).map(([st, cnt]) => (
+                    <div key={st} className="stat-badge-row">
+                      <StatusBadge status={st} />
+                      <span className="stat-badge-count">{cnt}</span>
+                    </div>
+                  ))
+                ) : (
+                  <span className="stat-value">—</span>
+                )}
+              </div>
+            </div>
+
+            <div className="card stat-card">
+              <span className="stat-label">Requests by Status</span>
+              <div className="stat-sublist">
+                {summary?.requests_by_status &&
+                Object.keys(summary.requests_by_status).length > 0 ? (
+                  Object.entries(summary.requests_by_status).map(([st, cnt]) => (
+                    <div key={st} className="stat-badge-row">
+                      <StatusBadge status={st} />
+                      <span className="stat-badge-count">{cnt}</span>
+                    </div>
+                  ))
+                ) : (
+                  <span className="stat-value">—</span>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* All Donations Table */}
           <section className="card list-card">
             <h3>All Donations ({donations.length})</h3>
@@ -238,29 +371,44 @@ export default function AdminConsole() {
                       <th>Category</th>
                       <th>Original Qty</th>
                       <th>Remaining Qty</th>
+                      <th>Expiry</th>
                       <th>Status</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {donations.map((d) => (
-                      <tr key={d.id}>
-                        <td>
-                          <code title={String(d.id)}>
-                            {formatId(d.id)}
-                          </code>
-                        </td>
-                        <td>{d.category}</td>
-                        <td>
-                          {d.original_quantity} {d.unit || ''}
-                        </td>
-                        <td>
-                          {d.remaining_quantity} {d.unit || ''}
-                        </td>
-                        <td>
-                          <StatusBadge status={d.status} />
-                        </td>
-                      </tr>
-                    ))}
+                    {donations.map((d) => {
+                      const isExpired =
+                        d.status !== 'CANCELLED' &&
+                        d.status !== 'FULLY_ALLOCATED' &&
+                        (d.status === 'EXPIRED' ||
+                          (d.expiry_time && new Date(d.expiry_time).getTime() <= Date.now()));
+                      const effectiveStatus = isExpired ? 'EXPIRED' : d.status;
+
+                      return (
+                        <tr key={d.id}>
+                          <td>
+                            <code title={String(d.id)}>
+                              {formatId(d.id)}
+                            </code>
+                          </td>
+                          <td>{d.category}</td>
+                          <td>
+                            {d.original_quantity} {d.unit || ''}
+                          </td>
+                          <td>
+                            {d.remaining_quantity} {d.unit || ''}
+                          </td>
+                          <td>
+                            {d.expiry_time
+                              ? new Date(d.expiry_time).toLocaleString()
+                              : '—'}
+                          </td>
+                          <td>
+                            <StatusBadge status={effectiveStatus} />
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -289,29 +437,38 @@ export default function AdminConsole() {
                     </tr>
                   </thead>
                   <tbody>
-                    {requests.map((r) => (
-                      <tr key={r.id}>
-                        <td>
-                          <code title={String(r.id)}>
-                            {formatId(r.id)}
-                          </code>
-                        </td>
-                        <td>{r.category}</td>
-                        <td>
-                          {r.original_quantity} {r.unit || ''}
-                        </td>
-                        <td>
-                          {r.remaining_quantity} {r.unit || ''}
-                        </td>
-                        <td>{getUrgencyLabel(r.urgency_level)}</td>
-                        <td>
-                          {formatDate(r.needed_by)}
-                        </td>
-                        <td>
-                          <StatusBadge status={r.status} />
-                        </td>
-                      </tr>
-                    ))}
+                    {requests.map((r) => {
+                      const isExpired =
+                        r.status !== 'CANCELLED' &&
+                        r.status !== 'FULFILLED' &&
+                        (r.status === 'EXPIRED' ||
+                          (r.needed_by && new Date(r.needed_by).getTime() <= Date.now()));
+                      const effectiveStatus = isExpired ? 'EXPIRED' : r.status;
+
+                      return (
+                        <tr key={r.id}>
+                          <td>
+                            <code title={String(r.id)}>
+                              {formatId(r.id)}
+                            </code>
+                          </td>
+                          <td>{r.category}</td>
+                          <td>
+                            {r.original_quantity} {r.unit || ''}
+                          </td>
+                          <td>
+                            {r.remaining_quantity} {r.unit || ''}
+                          </td>
+                          <td>{getUrgencyLabel(r.urgency_level)}</td>
+                          <td>
+                            {formatDate(r.needed_by)}
+                          </td>
+                          <td>
+                            <StatusBadge status={effectiveStatus} />
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -614,11 +771,251 @@ export default function AdminConsole() {
 
       {/* ================= LOGISTICS TAB ================= */}
       {activeTab === 'Logistics' && (
-        <div className="card placeholder-card">
-          <h3>Logistics</h3>
-          <p className="placeholder-tab-text">
-            Logistics optimization and route management coming soon.
-          </p>
+        <div className="logistics-tab-content">
+          {/* Section 1: Generate Routes */}
+          <section className="card logistics-section-card">
+            <div className="logistics-section-header">
+              <div>
+                <h3>Generate Delivery Routes</h3>
+                <p className="text-muted">
+                  Dispatch confirmed allocations to available volunteers using Held-Karp TSP route optimization.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn-primary btn-sm"
+                disabled={isBusy}
+                onClick={handleGenerateRoutes}
+              >
+                {generatingRoutes ? 'Generating…' : 'Generate routes'}
+              </button>
+            </div>
+
+            <ErrorBox message={routesError} />
+
+            {routesMessage && (
+              <div className="info-box">
+                <p>{routesMessage}</p>
+              </div>
+            )}
+
+            {/* Unassigned allocations list with message "Needs additional volunteer" */}
+            {unassignedAllocations && unassignedAllocations.length > 0 && (
+              <div className="warning-box">
+                <p className="warning-title">
+                  <strong>Needs additional volunteer:</strong> {unassignedAllocations.length} allocation(s) could not be assigned to available volunteers.
+                </p>
+                <ul className="skipped-list">
+                  {unassignedAllocations.map((item, idx) => (
+                    <li key={typeof item === 'object' ? item.id : item || idx}>
+                      Allocation <code>{formatId(typeof item === 'object' ? item.id : item)}</code>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Created routes list */}
+            {generatedRoutes && (
+              <div className="routes-list-container">
+                <h4>Created Routes ({generatedRoutes.length})</h4>
+                {generatedRoutes.length === 0 ? (
+                  <p className="empty-message">No routes generated.</p>
+                ) : (
+                  <div className="routes-cards-grid">
+                    {generatedRoutes.map((route) => {
+                      const stops = Array.isArray(route.stops) ? route.stops : [];
+                      const sortedStops = [...stops].sort(
+                        (a, b) => (a.stop_order || 0) - (b.stop_order || 0)
+                      );
+                      const totalDistance =
+                        route.total_distance_km ??
+                        route.total_distance ??
+                        route.distance_km;
+
+                      return (
+                        <div key={route.id} className="card route-card">
+                          <div className="route-header">
+                            <div className="route-title-group">
+                              <h4>
+                                Route <code className="route-id-code" title={String(route.id)}>{formatId(route.id)}</code>
+                              </h4>
+                              <StatusBadge status={route.status || 'PLANNED'} />
+                            </div>
+                            <div className="route-meta">
+                              <span className="route-volunteer">
+                                <strong>Volunteer:</strong> {route.volunteer_name || formatId(route.volunteer_id)}
+                              </span>
+                              {totalDistance != null && (
+                                <span className="summary-pill">
+                                  <strong>Distance:</strong> {Number(totalDistance).toFixed(1)} km
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="stops-section">
+                            <h5>Ordered Stops ({sortedStops.length})</h5>
+                            {sortedStops.length === 0 ? (
+                              <p className="empty-stops">No stops generated.</p>
+                            ) : (
+                              <div className="table-container">
+                                <table>
+                                  <thead>
+                                    <tr>
+                                      <th>Order</th>
+                                      <th>Type</th>
+                                      <th>Coordinates</th>
+                                      <th>Allocation ID</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {sortedStops.map((stop) => (
+                                      <tr key={stop.id || stop.stop_order}>
+                                        <td>
+                                          <span className="stop-order-number">#{stop.stop_order}</span>
+                                        </td>
+                                        <td>
+                                          <span className={`stop-type-label stop-type-${stop.stop_type?.toLowerCase()}`}>
+                                            {stop.stop_type}
+                                          </span>
+                                        </td>
+                                        <td>
+                                          Lat: {Number(stop.lat).toFixed(4)}, Lng: {Number(stop.lng).toFixed(4)}
+                                        </td>
+                                        <td>
+                                          <code title={String(stop.allocation_id)}>{formatId(stop.allocation_id)}</code>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+
+          {/* Section 2: Exact Bundle Finder */}
+          <section className="card logistics-section-card">
+            <div className="logistics-section-header">
+              <div>
+                <h3>Exact Bundle Finder</h3>
+                <p className="text-muted">
+                  Find the optimal subset of available donation batches to fulfill a recipient request using backtracking and subset-sum optimization.
+                </p>
+              </div>
+            </div>
+
+            <div className="bundle-finder-controls">
+              <div className="form-group" style={{ flex: 1, minWidth: '280px' }}>
+                <label htmlFor="bundle-request-select">Select Open Request:</label>
+                <select
+                  id="bundle-request-select"
+                  value={selectedRequestId}
+                  onChange={(e) => {
+                    setSelectedRequestId(e.target.value);
+                    setBundleResult(null);
+                    setBundleError('');
+                  }}
+                  disabled={isBusy}
+                >
+                  <option value="">— Select an open request with remaining quantity —</option>
+                  {requests
+                    .filter((r) => {
+                      const isExpired =
+                        r.status !== 'CANCELLED' &&
+                        r.status !== 'FULFILLED' &&
+                        (r.status === 'EXPIRED' ||
+                          (r.needed_by && new Date(r.needed_by).getTime() <= Date.now()));
+                      return Number(r.remaining_quantity) > 0 && !isExpired && r.status !== 'CANCELLED';
+                    })
+                    .map((r) => (
+                      <option key={r.id} value={r.id}>
+                        Request #{formatId(r.id)} — {r.category} ({r.remaining_quantity} {r.unit || ''} needed, Needed by: {formatDate(r.needed_by)})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <button
+                type="button"
+                className="btn-primary btn-sm"
+                style={{ height: '42px', padding: '0 20px', alignSelf: 'flex-end' }}
+                disabled={!selectedRequestId || isBusy}
+                onClick={handleFindBundle}
+              >
+                {findingBundle ? 'Finding…' : 'Find bundle'}
+              </button>
+            </div>
+
+            <ErrorBox message={bundleError} />
+
+            {bundleResult && (
+              <div className="bundle-result-box card">
+                <div className="bundle-result-header">
+                  <h4>Bundle Results</h4>
+                  {bundleResult.is_exact_match ? (
+                    <span className="status-badge badge-green">Exact match</span>
+                  ) : (
+                    <span className="status-badge badge-amber">Closest under target</span>
+                  )}
+                </div>
+
+                <div className="bundle-summary-row">
+                  <span className="summary-pill">
+                    <strong>Target Quantity:</strong> {bundleResult.target_quantity}
+                  </span>
+                  <span className="summary-pill">
+                    <strong>Achieved Sum:</strong> {bundleResult.achieved_sum}
+                  </span>
+                  <span className="summary-pill">
+                    <strong>Match Quality:</strong> {bundleResult.achieved_sum} of {bundleResult.target_quantity} ({bundleResult.is_exact_match ? '100% exact' : `${((bundleResult.achieved_sum / (bundleResult.target_quantity || 1)) * 100).toFixed(1)}%`})
+                  </span>
+                </div>
+
+                <div className="bundle-batches-section">
+                  <h5>Selected Batches ({Array.isArray(bundleResult.selected_batches) ? bundleResult.selected_batches.length : 0})</h5>
+                  {!Array.isArray(bundleResult.selected_batches) || bundleResult.selected_batches.length === 0 ? (
+                    <p className="empty-message">No matching batches found within radius and category.</p>
+                  ) : (
+                    <div className="table-container">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Batch / Donation ID</th>
+                            <th>Quantity</th>
+                            <th>Category</th>
+                            <th>Distance</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {bundleResult.selected_batches.map((batch, idx) => (
+                            <tr key={batch.id || idx}>
+                              <td>
+                                <code title={String(batch.id)}>{formatId(batch.id)}</code>
+                              </td>
+                              <td>
+                                <strong>{batch.allocated_quantity ?? batch.quantity ?? batch.remaining_quantity}</strong> {batch.unit || ''}
+                              </td>
+                              <td>{batch.category || '—'}</td>
+                              <td>{formatDistance(batch.distance_km)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </section>
         </div>
       )}
     </div>
