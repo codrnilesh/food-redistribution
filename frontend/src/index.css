@@ -803,4 +803,66 @@ tr:hover td {
   margin-left: auto;
 }
 
+/* =========================================================
+   Admin Console Styles
+   ========================================================= */
+.admin-tabs {
+  display: flex;
+  background-color: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 4px;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.admin-tab-btn {
+  padding: 8px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.admin-tab-btn:hover {
+  color: var(--text-h);
+}
+
+.admin-tab-btn.active {
+  background-color: var(--card-bg);
+  color: var(--text-h);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.overview-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.placeholder-card {
+  padding: var(--space-xl);
+  text-align: center;
+  margin-top: var(--space-md);
+}
+
+.placeholder-card h3 {
+  margin-bottom: var(--space-sm);
+  font-size: 18px;
+}
+
+.placeholder-tab-text {
+  font-size: 14px;
+  color: var(--text);
+  margin: 0;
+}
+
+
 

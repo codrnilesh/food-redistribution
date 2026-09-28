@@ -167,6 +167,54 @@ router.post('/', requireRole('admin'), async (req, res) => {
   }
 });
 
+// GET / - List 20 most recent allocation runs with allocation count (admin only)
+router.get('/', requireRole('admin'), async (req, res) => {
+  try {
+    const { data: runs, error: runsError } = await supabase
+      .from('allocation_runs')
+      .select('*')
+      .order('run_at', { ascending: false })
+      .limit(20);
+
+    if (runsError) {
+      return res.status(500).json({ error: runsError.message });
+    }
+
+    if (!runs || runs.length === 0) {
+      return res.json([]);
+    }
+
+    const runIds = runs.map((r) => r.id);
+    const { data: allocations, error: allocError } = await supabase
+      .from('allocations')
+      .select('id, run_id')
+      .in('run_id', runIds);
+
+    if (allocError) {
+      return res.status(500).json({ error: allocError.message });
+    }
+
+    const counts = new Map();
+    for (const a of allocations || []) {
+      counts.set(a.run_id, (counts.get(a.run_id) || 0) + 1);
+    }
+
+    const response = runs.map((r) => ({
+      id: r.id,
+      run_at: r.run_at,
+      status: r.status,
+      notes: r.notes !== undefined ? r.notes : null,
+      allocation_count: counts.get(r.id) || 0,
+      allocations_count: counts.get(r.id) || 0,
+      count: counts.get(r.id) || 0,
+    }));
+
+    return res.json(response);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /:id - Retrieve an allocation run and its allocations
 router.get('/:id', async (req, res) => {
   try {
