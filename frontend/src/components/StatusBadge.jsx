@@ -12,6 +12,7 @@ const STATUS_COLOR_MAP = {
   PARTIALLY_ALLOCATED: 'badge-blue',
   PARTIALLY_FULFILLED: 'badge-blue',
   PLANNED: 'badge-blue',
+  ASSIGNED: 'badge-blue',
 
   // Purple / Full
   FULLY_ALLOCATED: 'badge-purple',
